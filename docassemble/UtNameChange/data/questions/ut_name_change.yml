@@ -1,0 +1,454 @@
+---
+include:
+  - docassemble.AssemblyLine:al_package.yml
+  - docassemble.ALAnyState:any_state.yml
+---
+metadata:
+  title: |
+    Adult Name change
+  short title: |
+    Name change
+  tags:
+    - FA-00-00-00-00
+  authors:
+    - Quinten Steenhuis
+---
+mandatory: True
+comment: |
+  This contains metadata that will not be overwritten if this YAML file is included in another
+  file. Each file gets its own key in the interview_metadata dictionary.
+  Most keys are not currently used at runtime, other than "allowed courts".
+code: |
+  interview_metadata
+  if not defined("interview_metadata['ut_name_change']"):
+    interview_metadata.initializeObject("ut_name_change")
+    interview_metadata["ut_name_change"].update({
+      "al_weaver_version": "1.5.1",
+      "generated on": "2022-02-10",
+      "title": "Adult Name change",
+      "short title": "Name change",
+      "description": "Use this form to legally change your name as an adult in Utah.",
+      "original_form": "",
+      "allowed courts": [
+        "Probate and Family Court",
+      ],
+      "categories": [
+        "FA-00-00-00-00",
+      ],        
+      "logic block variable": "interview_order_ut_name_change",
+      "attachment block variable": "ut_name_change_attachment",
+      "typical role": "plaintiff",
+    })
+---
+code: |
+  interview_metadata['main_interview_key'] =  'ut_name_change'
+---
+code: |
+  # This controls the default country and list of states in address field questions
+  AL_DEFAULT_COUNTRY = "US"
+---
+code: |
+  # This controls the default state in address field questions
+  AL_DEFAULT_STATE = "UT"
+---
+code: |
+  github_repo_name =  'docassemble-UtNameChange'
+---
+code: |
+  interview_short_title = "Ask the court to change your name on official documents"
+---
+code: |
+  al_form_type = 'starts_case'
+---
+objects:
+  - new_name: ALPeopleList.using(ask_number=True,target_number=1)
+  - users: ALPeopleList.using(ask_number=True,target_number=1)
+---
+sections:
+  - review_ut_name_change: Review your answers
+---
+#################### Interview order #####################
+comment: |
+  Controls order and branching logic for questions specific to this form
+id: interview_order_ut_name_change
+code: |
+  # Set the allowed courts for this interview
+  allowed_courts = interview_metadata["ut_name_change"]["allowed courts"]
+  nav.set_section('review_ut_name_change')
+  user_role = 'plaintiff'
+  is_attorney
+  new_name.gather()
+  users[0].birthdate
+  want_change_name_reason
+  user_name_currently_used
+  users.gather()
+  set_progress(14)
+  users[0].address.address
+  movein_date  
+  users[0].phone_number
+  set_progress(28)
+  users[0].email
+  trial_court.address.address
+  trial_court.district  
+  docket_number
+  set_parts(subtitle=str(users))
+  set_progress(42)
+  users[0].birthdate
+  user_signature_location  
+  set_progress(57)
+  signature_date
+  interview_order_ut_name_change = True
+---
+###################### Main order ######################
+comment: |
+  This block includes the logic for standalone interviews.
+  Delete mandatory: True to include in another interview
+mandatory: True
+code: |
+  al_intro_screen
+  ut_name_change_intro
+  interview_order_ut_name_change
+  signature_date
+  # Save anonymized interview statistics (customize the saved data below)
+  store_variables_snapshot(data={'zip': users[0].address.zip})
+  ut_name_change_preview_question
+  basic_questions_signature_flow
+  users[0].signature
+  ut_name_change_download
+---
+comment: |
+  This question is used to introduce your interview. Please customize
+id: Adult_Name_change
+continue button field: ut_name_change_intro
+question: |
+  Adult Name change
+subquestion: |
+  Name change
+---
+id: What name do you use now
+question: |
+  What name do you use now?
+fields:
+  - "The name you use now": user_name_currently_used
+    maxlength: 38
+---
+id: Are you filing for yourself
+question: |
+  Are you filing for yourself?
+fields:
+  - I am: is_attorney_choice
+    choices:
+      - Filing for myself: self
+      - An attorney filing on someone else's behalf: attorney
+    datatype: radio
+  - "Bar number": bar_number
+    maxlength: 9
+    show if: 
+      variable: is_attorney_choice
+      is: attorney
+---    
+code: |
+  is_attorney = is_attorney_choice == "attorney"
+---
+id: new name
+sets:
+  - new_name[0].name.first
+  - new_name[0].name.last
+  - new_name[0].name.middle
+  - new_name[0].name.suffix
+question: |
+  What name do you want Utah to use for you on official documents?
+fields:
+  - code: |
+      new_name[0].name_fields()
+---
+id: birthdate question
+generic object: ALIndividual
+question: |
+  When were you born?
+fields:
+  - Birthdate: x.birthdate
+    datatype: BirthDate      
+---
+id: Trial court
+question: |
+  What district is ${ trial_court } in?
+fields:
+  - "Judicial district": trial_court.district
+    maxlength: 11
+  #- "Judge": judge
+  #  maxlength: 34
+---
+id: How long have you lived in this county
+question: |
+  How long have you lived in this county?
+fields:
+  - "Date moved to ${ users[0].address.county }": movein_date
+    datatype: date
+---
+id: Why do you need a name change
+question: |
+  Why do you need a name change?
+subquestion: |
+  Use your own words to explain to the court why you want to change your name.
+fields:
+  - no label: want_change_name_reason
+    input type: area
+    maxlength: 288
+  - "Are you listed on the Sex and Kidnap Offender Registry?": user_on_sex_offender_registry
+    datatype: yesnoradio
+  - "Why is it not against the public interest to allow you to change your name?": public_interest_explain
+    input type: area
+    maxlength: 136
+    show if: user_on_sex_offender_registry
+---
+id: your name
+sets:
+    - users[0].name.first
+    - users[0].name.last
+    - users[0].name.middle
+    - users[0].name.suffix
+question:  |
+  What is the name on your birth certificate?
+fields:
+  - code: |
+      users[0].name_fields()    
+---
+id: your address
+sets:
+  - users[0].address.address
+  - users[0].address.city
+  - users[0].address.zip
+  - users[0].address.unit
+  - users[0].address.state
+  - users[0].address.country
+question: |
+  What is your address?
+subquestion: |
+  Use an address where you can be contacted.
+fields:
+  - code: |
+      users[0].address_fields(country_code=AL_DEFAULT_COUNTRY, default_state=AL_DEFAULT_STATE)
+  - County: users[0].address.county
+---
+id: Where are you right now
+question: |
+  Where are you right now?
+subquestion: |
+  When you sign this document, you also need to tell
+  the judge where you are physically at the time you
+  complete the form.
+fields:
+  - "Current city, state, or country": user_signature_location
+    maxlength: 50
+---
+id: preview ut_name_change
+question: |
+  Preview your form before you sign it
+subquestion: |
+  Here is a preview of the form you will sign on the next page.   
+  
+  ${ al_court_bundle.as_pdf(key='preview') }
+
+  Click the image to open it in a new tab. Click the "Make changes" button
+  to edit your answers.
+
+  ${ action_button_html(url_action('review_ut_name_change'), label='Make changes', color='info') }
+  
+  Remember to come back to this window to continue and sign your form.
+continue button field: ut_name_change_preview_question    
+---
+code: |
+  signature_fields = ['users[0].signature']
+---
+id: ut name change review screen
+event: review_ut_name_change
+question: |
+  Review your answers
+review:
+  - Edit: user_name_currently_used
+    button: |
+      **The name you use now**:
+      ${ user_name_currently_used }
+  - Edit: bar_number
+    button: |
+      **Bar number**:
+      ${ bar_number }
+  - Edit: is_attorney
+    button: |
+      **Are you an attorney filing on behalf of a client?**:
+      ${ word(yesno(is_attorney)) }
+  - Edit: movein_date
+    button: |
+      **Date moved to current county**:
+      ${ movein_date }
+  - Edit: want_change_name_reason
+    button: |
+      **Explain why**:
+      > ${ single_paragraph(want_change_name_reason) }
+  - Edit: user_on_sex_offender_registry
+    button: |
+      **Are you listed on the Sex and Kidnap Offender Registry?**:
+      ${ word(yesno(user_on_sex_offender_registry)) }
+  - Edit: public_interest_explain
+    button: |
+      **Why is it not against the public interest to allow you to change your name?**:
+      > ${ single_paragraph(public_interest_explain) }
+  - Edit: user_signature_location
+    button: |
+      **What city, state, or country are you in right now?**:
+      ${ user_signature_location }
+  - Edit: users.revisit
+    button: |
+      **Users**
+
+      % for item in users:
+        * ${ item }
+      % endfor
+  - Edit: trial_court
+    button: |
+      **trial_court**
+
+      % if defined("trial_court.address.address"):
+      * address: ${ trial_court.address.block() }
+      % endif
+  - Edit: docket_number
+    button: |
+      **docket_number**:
+      ${ docket_number }
+  - Edit: signature_date
+    button: |
+      **signature_date**:
+      ${ signature_date }
+  - Edit: new_name.revisit
+    button: |
+      **New name**
+
+      % for item in new_name:
+        * ${ item }
+      % endfor
+---
+continue button field: users.revisit
+question: |
+  Edit users
+subquestion: |
+  ${ users.table }
+
+  ${ users.add_action() }
+---
+table: users.table
+rows: users
+columns:
+  - Address: |
+      row_item.address.block() if defined("row_item.address.county") else ""
+  - Phone number: |
+      row_item.phone_number if defined("row_item.phone_number") else ""
+  - Email: |
+      row_item.email if defined("row_item.email") else ""
+  - Name: |
+      row_item.name.full() if defined("row_item.name.last") else ""
+  - Birthdate: |
+      row_item.birthdate if defined("row_item.birthdate") else ""
+  - Signature: |
+      row_item.signature if defined("row_item.signature") else ""
+edit:
+  - address.county
+  - phone_number
+  - email
+  - name.last
+  - birthdate
+  - signature
+confirm: True
+
+---
+continue button field: new_name.revisit
+question: |
+  Edit new_name
+subquestion: |
+  ${ new_name.table }
+
+  ${ new_name.add_action() }
+---
+table: new_name.table
+rows: new_name
+columns:
+  - Name: |
+      row_item.name.full() if defined("row_item.name.first") else ""
+edit:
+  - name.first
+confirm: True
+
+---
+id: download ut_name_change
+event: ut_name_change_download
+question: |
+  Your form is ready to download.
+subquestion: |
+  Thank you ${users}. Your form is ready to download and deliver.
+  
+  View, download and send your form below. Click the "Make changes" button to fix any mistakes.
+
+  ${ action_button_html(url_action('review_ut_name_change'), label='Make changes', color='info') }
+  
+  
+  ${ al_user_bundle.download_list_html() }
+  
+
+  ${ al_user_bundle.send_button_html(show_editable_checkbox=False) }
+
+progress: 100
+---
+objects:
+  - ut_name_change_post_interview_instructions: ALDocument.using(title="Instructions", filename="ut_name_change_next_steps.docx", enabled=True, has_addendum=False, default_overflow_message=AL_DEFAULT_OVERFLOW_MESSAGE)
+  - ut_name_change_attachment: ALDocument.using(title="Adult Name change", filename="name_change.pdf", enabled=True, has_addendum=False, default_overflow_message=AL_DEFAULT_OVERFLOW_MESSAGE)
+---
+objects:
+  - al_user_bundle: ALDocumentBundle.using(elements=[ut_name_change_post_interview_instructions,ut_name_change_attachment], filename="ut_name_change_package.pdf", title="All forms to download for your records", enabled=True)
+  - al_court_bundle: ALDocumentBundle.using(elements=[ut_name_change_attachment], filename="ut_name_change_package.pdf", title="All forms to download for your records", enabled=True)
+---
+attachments:
+  - name: ut name change post interview instructions
+    filename: Post-interview-instructions     
+    variable name: ut_name_change_post_interview_instructions[i]        
+    skip undefined: True
+    docx template file: ut_name_change_next_steps.docx
+  - name: ut name change attachment
+    filename: ut_name_change     
+    variable name: ut_name_change_attachment[i]        
+    skip undefined: True
+    pdf template file: name_change.pdf
+    fields:
+      - "users1_address_line_one": ${ users[0].address.line_one() }
+      - "users1_address_line_two": ${ users[0].address.line_two() }
+      - "users1_phone_number": ${ users[0].phone_number }
+      - "users1_email": ${ users[0].email }
+      - "trial_court_county": ${ trial_court.address.county }
+      - "trial_court_address_on_one_line": ${ trial_court.address.on_one_line() }
+      - "docket_number": ${ docket_number }
+      - "users1_name_full": ${ users[0] }
+      - "users1_name": ${ users[0] }
+      - "user1_address_county": ${ users[0].address.county }
+      - "user1_birthdate": ${ users[0].birthdate.format() }
+      - "users1_name_first": ${ users[0].name.first }
+      - "users1_name_middle": ${ users[0].name.middle }
+      - "users1_name_last": ${ users[0].name.last }
+      - "signature_date": ${ signature_date }
+      - "users1_signature": ${ users[0].signature_if_final(i) }
+      - "new_name_name_last": ${ new_name[0].name.last }
+      - "new_name_name_middle": ${ new_name[0].name.middle }
+      - "new_name_name_first": ${ new_name[0].name.first }
+      - "user_name_currently_used": ${ user_name_currently_used }
+      - "bar_number": |
+          % if is_attorney:
+          ${ bar_number }
+          % endif
+      - "is_attorney_yes": ${ is_attorney }
+      - "is_attorney_no": ${ not is_attorney }
+      - "judicial_district": ${ trial_court.district }
+      #- "judge": ${ judge }
+      - "movein_date": ${ movein_date }
+      - "want_change_name_reason": ${ want_change_name_reason }
+      - "user_on_sex_offender_registry_yes": ${ user_on_sex_offender_registry }
+      - "user_on_sex_offender_registry_no": ${ not user_on_sex_offender_registry }
+      - "public_interest_explain__1": ${ public_interest_explain }
+      - "user_signature_location": ${ user_signature_location }
